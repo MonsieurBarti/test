@@ -3,15 +3,18 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/the-forge-flow/tttest/cmd"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: tdo <command> [args]")
-		fmt.Fprintln(os.Stderr, "Commands: add, list, done, delete")
+		cmd.PrintUsage()
 		os.Exit(1)
 	}
 
-	// Placeholder - commands will be implemented in subsequent tasks
-	fmt.Println("tdo CLI initialized")
+	if err := cmd.Dispatch(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
