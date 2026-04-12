@@ -42,15 +42,10 @@ func Save(store *Store) error {
 	}
 
 	// E01: Ensure data directory exists
-	dir := os.ExpandEnv("${XDG_DATA_HOME}")
-	if dir == "" {
-		home, _ := os.UserHomeDir()
-		dir = fmt.Sprintf("%s/.local/share", home)
+	dataDir, err := DataDir()
+	if err != nil {
+		return err
 	}
-	dir = fmt.Sprintf("%s/tdo", dir)
-
-	// Actually get the directory from TasksPath logic
-	dataDir, _ := DataDir()
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return fmt.Errorf("cannot create data directory: %w", err)
 	}
