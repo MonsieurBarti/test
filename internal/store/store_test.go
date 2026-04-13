@@ -366,3 +366,61 @@ func TestDeleteTask(t *testing.T) {
 		t.Error("expected false for non-existent task")
 	}
 }
+
+func TestPersistenceAcrossOperations(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	// Create
+	store.CreateTask("task one")
+	store.CreateTask("task two")
+
+	// Create new store instance (simulates restart)
+	store2 := NewTodoStoreWithPath(path)
+	tasks := store2.ListTasks()
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks after restart, got %d", len(tasks))
+	}
+
+	// Update
+	task := tasks[0]
+	task.Done = true
+	store2.UpdateTask(task)
+
+	// Verify with third instance
+	store3 := NewTodoStoreWithPath(path)
+	updated := store3.GetTask(task.ID)
+	if updated == nil || !updated.Done {
+		t.Error("expected task to be done after update")
+	}
+}
+
+func TestListTasksEmptySliceNotNul(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	tasks := store.ListTasks()
+	if tasks == nil {
+		t.Fatal("expected empty slice, not nil")
+	}
+	if len(tasks) != 0 {
+		t.Errorf("expected 0 tasks, got %d", len(tasks))
+	}
+}
+
+func TestIDDoesNotReuseAfterDelete(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	store.CreateTask("first")  // ID 1
+	store.CreateTask("second") // ID 2
+	store.DeleteTask(1)        // Delete ID 1
+
+	task, _ := store.CreateTask("third") // Should be ID 3, not 1
+	if task.ID != 3 {
+		t.Errorf("expected ID 3, got %d (should not reuse deleted IDs)", task.ID)
+	}
+}
