@@ -336,3 +336,33 @@ func TestUpdateTaskNotFound(t *testing.T) {
 		t.Errorf("expected Op 'update', got %q", storageErr.Op)
 	}
 }
+
+func TestDeleteTask(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	store.CreateTask("first")
+	store.CreateTask("second")
+
+	// Delete existing task
+	deleted := store.DeleteTask(1)
+	if !deleted {
+		t.Error("expected true for existing task")
+	}
+
+	// Verify persistence
+	tasks := store.ListTasks()
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].ID != 2 {
+		t.Errorf("expected remaining task ID 2, got %d", tasks[0].ID)
+	}
+
+	// Delete non-existent task
+	deleted = store.DeleteTask(999)
+	if deleted {
+		t.Error("expected false for non-existent task")
+	}
+}

@@ -169,3 +169,20 @@ func (s *TodoStore) UpdateTask(task Task) error {
 	}
 	return &StorageError{Op: "update", Path: s.filePath, Err: fmt.Errorf("task with ID %d not found", task.ID)}
 }
+
+// DeleteTask removes the task with the given ID.
+// Returns true if found and deleted, false otherwise.
+func (s *TodoStore) DeleteTask(id int) bool {
+	tasks, err := s.readFile()
+	if err != nil {
+		return false
+	}
+	for i, t := range tasks {
+		if t.ID == id {
+			tasks = append(tasks[:i], tasks[i+1:]...)
+			_ = s.writeFile(tasks)
+			return true
+		}
+	}
+	return false
+}
