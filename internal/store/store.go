@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -125,4 +126,30 @@ func (s *TodoStore) CreateTask(text string) (Task, error) {
 	}
 
 	return task, nil
+}
+
+// GetTask returns the task with the given ID, or nil if not found.
+func (s *TodoStore) GetTask(id int) *Task {
+	tasks, err := s.readFile()
+	if err != nil {
+		return nil
+	}
+	for i := range tasks {
+		if tasks[i].ID == id {
+			return &tasks[i]
+		}
+	}
+	return nil
+}
+
+// ListTasks returns all tasks sorted by ID ascending.
+func (s *TodoStore) ListTasks() []Task {
+	tasks, err := s.readFile()
+	if err != nil {
+		return []Task{}
+	}
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].ID < tasks[j].ID
+	})
+	return tasks
 }

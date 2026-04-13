@@ -220,3 +220,72 @@ func TestCreateTaskSequentialID(t *testing.T) {
 		t.Errorf("expected ID 3, got %d", task3.ID)
 	}
 }
+
+func TestGetTask(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	store.CreateTask("first")
+	store.CreateTask("second")
+
+	task := store.GetTask(1)
+	if task == nil {
+		t.Fatal("expected task, got nil")
+	}
+	if task.ID != 1 {
+		t.Errorf("expected ID 1, got %d", task.ID)
+	}
+	if task.Text != "first" {
+		t.Errorf("expected Text 'first', got %q", task.Text)
+	}
+
+	task2 := store.GetTask(2)
+	if task2 == nil {
+		t.Fatal("expected task, got nil")
+	}
+	if task2.ID != 2 {
+		t.Errorf("expected ID 2, got %d", task2.ID)
+	}
+
+	// Non-existent task
+	nilTask := store.GetTask(999)
+	if nilTask != nil {
+		t.Errorf("expected nil for non-existent task, got %v", nilTask)
+	}
+}
+
+func TestListTasks(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	// Empty list
+	tasks := store.ListTasks()
+	if tasks == nil {
+		t.Fatal("expected empty slice, got nil")
+	}
+	if len(tasks) != 0 {
+		t.Errorf("expected 0 tasks, got %d", len(tasks))
+	}
+
+	// Add tasks
+	store.CreateTask("third")
+	store.CreateTask("first")
+	store.CreateTask("second")
+
+	// List should be sorted by ID
+	tasks = store.ListTasks()
+	if len(tasks) != 3 {
+		t.Fatalf("expected 3 tasks, got %d", len(tasks))
+	}
+	if tasks[0].Text != "third" {
+		t.Errorf("expected first task 'third', got %q", tasks[0].Text)
+	}
+	if tasks[1].Text != "first" {
+		t.Errorf("expected second task 'first', got %q", tasks[1].Text)
+	}
+	if tasks[2].Text != "second" {
+		t.Errorf("expected third task 'second', got %q", tasks[2].Text)
+	}
+}
