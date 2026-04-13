@@ -1,6 +1,10 @@
 package store
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
 
 // Task represents a single todo item.
 type Task struct {
@@ -46,4 +50,42 @@ func NewTodoStore() *TodoStore {
 // NewTodoStoreWithPath creates a store with a custom file path (for testing).
 func NewTodoStoreWithPath(path string) *TodoStore {
 	return &TodoStore{filePath: path}
+}
+
+// readFile loads tasks from the JSON file.
+// If the file doesn't exist, it returns an empty slice and creates the file.
+// If the file contains invalid JSON, it returns a StorageError.
+func (s *TodoStore) readFile() ([]Task, error) {
+	data, err := os.ReadFile(s.filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Auto-create with empty array
+			if writeErr := os.WriteFile(s.filePath, []byte("[]"), 0644); writeErr != nil {
+				return nil, &StorageError{Op: "create", Path: s.filePath, Err: writeErr}
+			}
+			return []Task{}, nil
+		}
+		return nil, &StorageError{Op: "read", Path: s.filePath, Err: err}
+	}
+	var tasks []Task
+	if err := json.Unmarshal(data, &tasks); err != nil {
+		return nil, &StorageError{Op: "read", Path: s.filePath, Err: err}
+	}
+	if tasks == nil {
+		tasks = []Task{}
+	}
+	return tasks, nil
+}
+
+// writeFile marshals and writes tasks to the JSON file.
+func (s *TodoStore) writeFile(tasks []Task) error {
+	data, err := json.Marshal(tasks)
+	if err != nil {
+		return &StorageError{Op: "marshal", Path: s.filePath, Err: err}
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(s.filePath, data, 0644); err != nil {
+		return &StorageError{Op: "write", Path: s.filePath, Err: err}
+	}
+	return nil
 }

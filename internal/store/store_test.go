@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"os"
 	"testing"
 )
 
@@ -72,5 +73,61 @@ func TestNewTodoStoreWithPath(t *testing.T) {
 	}
 	if store.filePath != "/tmp/test.json" {
 		t.Errorf("expected filePath '/tmp/test.json', got %q", store.filePath)
+	}
+}
+
+func TestReadFileAutoCreates(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+	tasks, err := store.readFile()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tasks == nil {
+		t.Fatal("expected empty slice, got nil")
+	}
+	if len(tasks) != 0 {
+		t.Errorf("expected 0 tasks, got %d", len(tasks))
+	}
+}
+
+func TestReadFileCorruptedJSON(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	if err := os.WriteFile(path, []byte("not valid json"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store := NewTodoStoreWithPath(path)
+	_, err := store.readFile()
+	if err == nil {
+		t.Fatal("expected error for corrupted JSON")
+	}
+	var storageErr *StorageError
+	if !errors.As(err, &storageErr) {
+		t.Fatalf("expected StorageError, got %T: %v", err, err)
+	}
+	if storageErr.Op != "read" {
+		t.Errorf("expected Op 'read', got %q", storageErr.Op)
+	}
+}
+
+func TestWriteFile(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+	tasks := []Task{
+		{ID: 1, Text: "buy milk", Done: false},
+	}
+	if err := store.writeFile(tasks); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `[{"id":1,"text":"buy milk","done":false}]` + "\n"
+	if string(data) != expected {
+		t.Errorf("expected %q, got %q", expected, string(data))
 	}
 }
