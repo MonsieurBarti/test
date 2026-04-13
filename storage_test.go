@@ -1,0 +1,149 @@
+package tdo
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func TestLoadTodosReturnsEmptyForMissingFile(t *testing.T) {
+	// AC2: loadTodos returns empty for missing file
+	// Use a temp directory with no .tdo.json file
+	tempDir := t.TempDir()
+
+	// Point to non-existent file in temp dir
+	originalHome := os.Getenv("HOME")
+	t.Setenv("HOME", tempDir)
+	defer os.Setenv("HOME", originalHome)
+
+	todos, err := loadTodos()
+	if err != nil {
+		t.Errorf("expected no error for missing file, got %v", err)
+	}
+	if len(todos) != 0 {
+		t.Errorf("expected empty slice, got %d todos", len(todos))
+	}
+}
+
+func TestLoadTodosReturnsTodosForValidFile(t *testing.T) {
+	// AC3: loadTodos returns todos for valid file
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	// Create a valid JSON file
+	tag := "work"
+	now := time.Now().UTC()
+	todos := []Todo{
+		{
+			ID:        1,
+			Text:      "Test todo",
+			Tag:       &tag,
+			CreatedAt: now,
+		},
+	}
+	data, err := json.Marshal(todos)
+	if err != nil {
+		t.Fatalf("failed to marshal test todos: %v", err)
+	}
+	err = os.WriteFile(filepath.Join(tempDir, ".tdo.json"), data, 0644)
+	if err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	loaded, err := loadTodos()
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("expected 1 todo, got %d", len(loaded))
+	}
+	if loaded[0].ID != 1 {
+		t.Errorf("expected ID 1, got %d", loaded[0].ID)
+	}
+	if loaded[0].Text != "Test todo" {
+		t.Errorf("expected Text 'Test todo', got %s", loaded[0].Text)
+	}
+	if loaded[0].Tag == nil || *loaded[0].Tag != "work" {
+		t.Errorf("expected Tag 'work', got %v", loaded[0].Tag)
+	}
+}
+
+func TestLoadTodosErrorsOnInvalidJSON(t *testing.T) {
+	// AC4: loadTodos errors on invalid JSON
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	// Write invalid JSON
+	invalidJSON := []byte(`{this is not valid json}`)
+	err := os.WriteFile(filepath.Join(tempDir, ".tdo.json"), invalidJSON, 0644)
+	if err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	_, err = loadTodos()
+	if err == nil {
+		t.Fatal("expected error for invalid JSON, got nil")
+	}
+
+	// Verify it's a StorageCorruptedError
+	corruptedErr, ok := err.(StorageCorruptedError)
+	if !ok {
+		t.Errorf("expected StorageCorruptedError, got %T", err)
+	}
+	if corruptedErr.Path == "" {
+		t.Error("expected Path to be set in StorageCorruptedError")
+	}
+}
+
+func TestLoadTodosErrorsOnWrongSchemaNotArray(t *testing.T) {
+	// AC5: loadTodos errors on wrong schema (object instead of array)
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	// Valid JSON but wrong structure (object instead of array)
+	wrongSchema := []byte(`{"id": 1, "text": "test"}`)
+	err := os.WriteFile(filepath.Join(tempDir, ".tdo.json"), wrongSchema, 0644)
+	if err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	_, err = loadTodos()
+	if err == nil {
+		t.Fatal("expected error for wrong schema, got nil")
+	}
+
+	// Verify it's a StorageSchemaError
+	schemaErr, ok := err.(StorageSchemaError)
+	if !ok {
+		t.Errorf("expected StorageSchemaError, got %T", err)
+	}
+	if schemaErr.Path == "" {
+		t.Error("expected Path to be set in StorageSchemaError")
+	}
+}
+
+func TestLoadTodosErrorsOnWrongSchemaMissingFields(t *testing.T) {
+	// AC5: loadTodos errors on wrong schema (items missing required fields)
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	// Array but items missing required fields
+	wrongSchema := []byte(`[{"text": "test"}]`)
+	err := os.WriteFile(filepath.Join(tempDir, ".tdo.json"), wrongSchema, 0644)
+	if err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	_, err = loadTodos()
+	if err == nil {
+		t.Fatal("expected error for wrong schema, got nil")
+	}
+
+	// Verify it's a StorageSchemaError
+	_, ok := err.(StorageSchemaError)
+	if !ok {
+		t.Errorf("expected StorageSchemaError, got %T", err)
+	}
+}
