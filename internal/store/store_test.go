@@ -131,3 +131,92 @@ func TestWriteFile(t *testing.T) {
 		t.Errorf("expected %q, got %q", expected, string(data))
 	}
 }
+
+func TestCreateTask(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	// Test happy path
+	task, err := store.CreateTask("buy milk")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if task.ID != 1 {
+		t.Errorf("expected ID 1, got %d", task.ID)
+	}
+	if task.Text != "buy milk" {
+		t.Errorf("expected Text 'buy milk', got %q", task.Text)
+	}
+	if task.Done != false {
+		t.Errorf("expected Done false, got %v", task.Done)
+	}
+
+	// Verify persistence
+	tasks, err := store.readFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+}
+
+func TestCreateTaskTrim(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	task, err := store.CreateTask("  buy milk  ")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if task.Text != "buy milk" {
+		t.Errorf("expected trimmed text 'buy milk', got %q", task.Text)
+	}
+}
+
+func TestCreateTaskValidation(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	// Empty text
+	_, err := store.CreateTask("")
+	if err == nil {
+		t.Fatal("expected error for empty text")
+	}
+	var valErr *ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("expected ValidationError, got %T: %v", err, err)
+	}
+
+	// Whitespace-only text
+	_, err = store.CreateTask("   ")
+	if err == nil {
+		t.Fatal("expected error for whitespace-only text")
+	}
+	if !errors.As(err, &valErr) {
+		t.Fatalf("expected ValidationError, got %T: %v", err, err)
+	}
+}
+
+func TestCreateTaskSequentialID(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	task1, _ := store.CreateTask("first")
+	task2, _ := store.CreateTask("second")
+	task3, _ := store.CreateTask("third")
+
+	if task1.ID != 1 {
+		t.Errorf("expected ID 1, got %d", task1.ID)
+	}
+	if task2.ID != 2 {
+		t.Errorf("expected ID 2, got %d", task2.ID)
+	}
+	if task3.ID != 3 {
+		t.Errorf("expected ID 3, got %d", task3.ID)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Task represents a single todo item.
@@ -88,4 +89,40 @@ func (s *TodoStore) writeFile(tasks []Task) error {
 		return &StorageError{Op: "write", Path: s.filePath, Err: err}
 	}
 	return nil
+}
+
+// CreateTask creates a new task with the given text.
+// It trims whitespace, validates non-empty text, generates a sequential ID,
+// and persists immediately.
+func (s *TodoStore) CreateTask(text string) (Task, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return Task{}, &ValidationError{Message: "task text cannot be empty"}
+	}
+
+	tasks, err := s.readFile()
+	if err != nil {
+		return Task{}, err
+	}
+
+	// Generate sequential ID
+	maxID := 0
+	for _, t := range tasks {
+		if t.ID > maxID {
+			maxID = t.ID
+		}
+	}
+
+	task := Task{
+		ID:   maxID + 1,
+		Text: text,
+		Done: false,
+	}
+
+	tasks = append(tasks, task)
+	if err := s.writeFile(tasks); err != nil {
+		return Task{}, err
+	}
+
+	return task, nil
 }
