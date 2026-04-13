@@ -153,3 +153,19 @@ func (s *TodoStore) ListTasks() []Task {
 	})
 	return tasks
 }
+
+// UpdateTask replaces the task with the given ID.
+// Returns a StorageError if the task is not found.
+func (s *TodoStore) UpdateTask(task Task) error {
+	tasks, err := s.readFile()
+	if err != nil {
+		return err
+	}
+	for i, t := range tasks {
+		if t.ID == task.ID {
+			tasks[i] = task
+			return s.writeFile(tasks)
+		}
+	}
+	return &StorageError{Op: "update", Path: s.filePath, Err: fmt.Errorf("task with ID %d not found", task.ID)}
+}

@@ -289,3 +289,50 @@ func TestListTasks(t *testing.T) {
 		t.Errorf("expected third task 'second', got %q", tasks[2].Text)
 	}
 }
+
+func TestUpdateTask(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	task, _ := store.CreateTask("buy milk")
+
+	// Update the task
+	task.Text = "buy almond milk"
+	task.Done = true
+	err := store.UpdateTask(task)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify persistence
+	updated := store.GetTask(1)
+	if updated == nil {
+		t.Fatal("task not found")
+	}
+	if updated.Text != "buy almond milk" {
+		t.Errorf("expected Text 'buy almond milk', got %q", updated.Text)
+	}
+	if updated.Done != true {
+		t.Errorf("expected Done true, got %v", updated.Done)
+	}
+}
+
+func TestUpdateTaskNotFound(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/tdo.json"
+	store := NewTodoStoreWithPath(path)
+
+	// Update non-existent task
+	err := store.UpdateTask(Task{ID: 999, Text: "not found", Done: false})
+	if err == nil {
+		t.Fatal("expected error for non-existent task")
+	}
+	var storageErr *StorageError
+	if !errors.As(err, &storageErr) {
+		t.Fatalf("expected StorageError, got %T: %v", err, err)
+	}
+	if storageErr.Op != "update" {
+		t.Errorf("expected Op 'update', got %q", storageErr.Op)
+	}
+}
