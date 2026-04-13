@@ -244,3 +244,75 @@ func TestSaveTodosOverwritesAtomically(t *testing.T) {
 		t.Errorf("expected Text 'New todo', got %s", loaded[0].Text)
 	}
 }
+
+func TestRoundTripIntegrity(t *testing.T) {
+	// AC8: Round-trip integrity - saveTodos followed by loadTodos returns identical []Todo
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	tag := "work"
+	doneAt := time.Now().UTC()
+	now := time.Now().UTC()
+	original := []Todo{
+		{
+			ID:        1,
+			Text:      "First todo",
+			Tag:       &tag,
+			CreatedAt: now,
+		},
+		{
+			ID:        2,
+			Text:      "Second todo",
+			CreatedAt: now,
+			DoneAt:    &doneAt,
+		},
+		{
+			ID:        3,
+			Text:      "Third todo",
+			CreatedAt: now,
+		},
+	}
+
+	// Save
+	if err := saveTodos(original); err != nil {
+		t.Fatalf("saveTodos failed: %v", err)
+	}
+
+	// Load
+	loaded, err := loadTodos()
+	if err != nil {
+		t.Fatalf("loadTodos failed: %v", err)
+	}
+
+	// Verify count
+	if len(loaded) != len(original) {
+		t.Fatalf("expected %d todos, got %d", len(original), len(loaded))
+	}
+
+	// Verify each todo matches
+	for i, orig := range original {
+		got := loaded[i]
+		if got.ID != orig.ID {
+			t.Errorf("todo[%d]: expected ID %d, got %d", i, orig.ID, got.ID)
+		}
+		if got.Text != orig.Text {
+			t.Errorf("todo[%d]: expected Text %q, got %q", i, orig.Text, got.Text)
+		}
+		// Check Tag
+		if (orig.Tag == nil) != (got.Tag == nil) {
+			t.Errorf("todo[%d]: Tag nil mismatch", i)
+		} else if orig.Tag != nil && *got.Tag != *orig.Tag {
+			t.Errorf("todo[%d]: expected Tag %q, got %q", i, *orig.Tag, *got.Tag)
+		}
+		// Check CreatedAt
+		if !got.CreatedAt.Equal(orig.CreatedAt) {
+			t.Errorf("todo[%d]: CreatedAt mismatch", i)
+		}
+		// Check DoneAt
+		if (orig.DoneAt == nil) != (got.DoneAt == nil) {
+			t.Errorf("todo[%d]: DoneAt nil mismatch", i)
+		} else if orig.DoneAt != nil && !got.DoneAt.Equal(*orig.DoneAt) {
+			t.Errorf("todo[%d]: DoneAt mismatch", i)
+		}
+	}
+}
