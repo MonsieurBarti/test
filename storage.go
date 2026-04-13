@@ -53,3 +53,32 @@ func loadTodos() ([]Todo, error) {
 
 	return todos, nil
 }
+
+// saveTodos writes todos to ~/.tdo.json using atomic write pattern.
+// Creates the file if it doesn't exist, overwrites if it does.
+func saveTodos(todos []Todo) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	finalPath := filepath.Join(homeDir, ".tdo.json")
+	tempPath := filepath.Join(homeDir, ".tdo.json.tmp")
+
+	data, err := json.Marshal(todos)
+	if err != nil {
+		return err
+	}
+
+	// Write to temp file first
+	if err := os.WriteFile(tempPath, data, 0644); err != nil {
+		return err
+	}
+
+	// Atomic rename
+	if err := os.Rename(tempPath, finalPath); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -147,3 +147,100 @@ func TestLoadTodosErrorsOnWrongSchemaMissingFields(t *testing.T) {
 		t.Errorf("expected StorageSchemaError, got %T", err)
 	}
 }
+
+func TestSaveTodosCreatesFileAtomically(t *testing.T) {
+	// AC6: saveTodos creates file atomically
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	tag := "work"
+	now := time.Now().UTC()
+	todos := []Todo{
+		{
+			ID:        1,
+			Text:      "Test todo",
+			Tag:       &tag,
+			CreatedAt: now,
+		},
+	}
+
+	err := saveTodos(todos)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Verify file exists
+	path := filepath.Join(tempDir, ".tdo.json")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Fatal("expected file to be created")
+	}
+
+	// Verify content
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+
+	var loaded []Todo
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if len(loaded) != 1 {
+		t.Errorf("expected 1 todo, got %d", len(loaded))
+	}
+	if loaded[0].ID != 1 {
+		t.Errorf("expected ID 1, got %d", loaded[0].ID)
+	}
+}
+
+func TestSaveTodosOverwritesAtomically(t *testing.T) {
+	// AC7: saveTodos overwrites atomically
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	// Create initial file
+	initialPath := filepath.Join(tempDir, ".tdo.json")
+	initialData := []byte(`[{"id": 1, "text": "old", "createdAt": "2024-01-01T00:00:00Z"}]`)
+	if err := os.WriteFile(initialPath, initialData, 0644); err != nil {
+		t.Fatalf("failed to create initial file: %v", err)
+	}
+
+	// Overwrite with new data
+	tag := "work"
+	now := time.Now().UTC()
+	todos := []Todo{
+		{
+			ID:        2,
+			Text:      "New todo",
+			Tag:       &tag,
+			CreatedAt: now,
+		},
+	}
+
+	err := saveTodos(todos)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	// Verify file was replaced
+	data, err := os.ReadFile(initialPath)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+
+	var loaded []Todo
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if len(loaded) != 1 {
+		t.Errorf("expected 1 todo, got %d", len(loaded))
+	}
+	if loaded[0].ID != 2 {
+		t.Errorf("expected ID 2, got %d", loaded[0].ID)
+	}
+	if loaded[0].Text != "New todo" {
+		t.Errorf("expected Text 'New todo', got %s", loaded[0].Text)
+	}
+}
