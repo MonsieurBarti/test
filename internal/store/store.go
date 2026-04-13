@@ -32,3 +32,18 @@ func (e *StorageError) Error() string {
 func (e *StorageError) Unwrap() error {
 	return e.Err
 }
+
+// TodoStore manages task persistence to a JSON file.
+type TodoStore struct {
+	filePath string
+}
+
+// NewTodoStore creates a store with the default file path "tdo.json".
+func NewTodoStore() *TodoStore {
+	return &TodoStore{filePath: "tdo.json"}
+}
+
+// NewTodoStoreWithPath creates a store with a custom file path (for testing).
+func NewTodoStoreWithPath(path string) *TodoStore {
+	return &TodoStore{filePath: path}
+}

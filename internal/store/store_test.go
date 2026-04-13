@@ -54,3 +54,23 @@ func TestStorageError(t *testing.T) {
 		t.Errorf("expected Path '/path/to/file', got %q", storageErr.Path)
 	}
 }
+
+func TestNewTodoStore(t *testing.T) {
+	store := NewTodoStore()
+	if store == nil {
+		t.Fatal("NewTodoStore returned nil")
+	}
+	if store.filePath != "tdo.json" {
+		t.Errorf("expected filePath 'tdo.json', got %q", store.filePath)
+	}
+}
+
+func TestNewTodoStoreWithPath(t *testing.T) {
+	store := NewTodoStoreWithPath("/tmp/test.json")
+	if store == nil {
+		t.Fatal("NewTodoStoreWithPath returned nil")
+	}
+	if store.filePath != "/tmp/test.json" {
+		t.Errorf("expected filePath '/tmp/test.json', got %q", store.filePath)
+	}
+}
