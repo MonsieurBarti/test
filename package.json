@@ -1,0 +1,16 @@
+{
+  "name": "tdo",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Minimal todo CLI tool",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test --import tsx src/**/*.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
