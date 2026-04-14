@@ -26,8 +26,8 @@ const TRANSLITERATION: Record<string, string> = {
   '\u00DE': 'th', '\u00FE': 'th', // Þ, þ
   '\u00D7': 'x', // ×
   '\u00F7': 'div', // ÷
-  // Non-breaking space
-  '\u00A0': ' ',
+  // Non-breaking space (becomes dash like regular space)
+  '\u00A0': '-',
 };
 
 /**
