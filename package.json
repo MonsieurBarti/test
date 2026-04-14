@@ -1,5 +1,6 @@
 {
   "name": "slugify",
+  "type": "module",
   "version": "1.0.0",
   "description": "Zero-dependency slugify function with Unicode support",
   "main": "dist/index.js",
