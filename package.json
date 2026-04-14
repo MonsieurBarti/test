@@ -1,0 +1,16 @@
+{
+  "name": "slugify",
+  "version": "1.0.0",
+  "description": "Zero-dependency slugify function with Unicode support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test"
+  },
+  "keywords": ["slugify", "slug", "url-safe", "unicode"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
