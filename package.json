@@ -1,0 +1,29 @@
+{
+  "name": "schemadiff",
+  "version": "0.1.0",
+  "description": "Compare two JSON Schema files and identify differences",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "schemadiff": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "json-schema",
+    "diff",
+    "schema",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.11.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
