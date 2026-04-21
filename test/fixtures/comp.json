@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" }
+  },
+  "allOf": [
+    { "type": "object", "properties": { "email": { "type": "string" } } }
+  ],
+  "anyOf": [
+    { "required": ["name"] },
+    { "required": ["email"] }
+  ],
+  "oneOf": [
+    { "properties": { "a": { "type": "string" } } },
+    { "properties": { "b": { "type": "string" } } }
+  ]
+}

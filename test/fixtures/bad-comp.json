@@ -1,0 +1,4 @@
+{
+  "type": "object",
+  "allOf": ["not a schema"]
+}
