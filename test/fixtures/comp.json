@@ -1,17 +1,39 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "properties": {
-    "name": { "type": "string" }
-  },
   "allOf": [
-    { "type": "object", "properties": { "email": { "type": "string" } } }
+    {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": ["name"]
+    },
+    {
+      "properties": {
+        "email": {
+          "type": "string"
+        }
+      }
+    }
   ],
   "anyOf": [
-    { "required": ["name"] },
-    { "required": ["email"] }
+    {
+      "properties": {
+        "phone": {
+          "type": "string"
+        }
+      }
+    }
   ],
   "oneOf": [
-    { "properties": { "a": { "type": "string" } } },
-    { "properties": { "b": { "type": "string" } } }
+    {
+      "properties": {
+        "address": {
+          "type": "string"
+        }
+      }
+    }
   ]
 }

@@ -1,5 +1,5 @@
 import { SchemaType, SchemaNode, ValidationError, ParsedSchema } from './types.js';
-import { isPlainObject } from './utils.js';
+import { isPlainObject, cloneDeep, intersection } from './utils.js';
 
 /**
  * Valid JSON Schema type literals
@@ -227,6 +227,178 @@ function parseNode(
 }
 
 /**
+ * Merge multiple types into their intersection
+ * Returns the most restrictive type set
+ */
+function mergeTypes(types: (SchemaType | SchemaType[] | undefined)[]): SchemaType | SchemaType[] | undefined {
+  const typeSets: SchemaType[][] = [];
+
+  for (const t of types) {
+    if (t === undefined) continue;
+    const arr = Array.isArray(t) ? t : [t];
+    if (arr.length > 0) {
+      typeSets.push(arr);
+    }
+  }
+
+  if (typeSets.length === 0) return undefined;
+  if (typeSets.length === 1) return typeSets[0].length === 1 ? typeSets[0][0] : typeSets[0];
+
+  // Compute intersection of all type sets
+  let result = typeSets[0];
+  for (let i = 1; i < typeSets.length; i++) {
+    result = intersection(result, typeSets[i]);
+  }
+
+  if (result.length === 0) return undefined; // No valid types (contradiction)
+  return result.length === 1 ? result[0] : result;
+}
+
+/**
+ * Merge two schema nodes (for allOf merging)
+ * Returns a new merged SchemaNode
+ */
+function mergeSchemas(a: SchemaNode, b: SchemaNode, path: string): SchemaNode {
+  const merged: SchemaNode = { _path: path };
+
+  // Merge types (intersection)
+  const mergedType = mergeTypes([a.type, b.type]);
+  if (mergedType) {
+    merged.type = mergedType;
+  }
+
+  // Merge properties (union, recursively)
+  const allKeys = new Set([
+    ...Object.keys(a.properties || {}),
+    ...Object.keys(b.properties || {})
+  ]);
+
+  if (allKeys.size > 0) {
+    merged.properties = {};
+    for (const key of allKeys) {
+      const aProp = a.properties?.[key];
+      const bProp = b.properties?.[key];
+
+      if (aProp && bProp) {
+        // Both have the property, merge them
+        merged.properties[key] = mergeSchemas(aProp, bProp, `${path}.properties.${key}`);
+      } else {
+        // Only one has the property, take it
+        const prop = (aProp || bProp) as SchemaNode;
+        merged.properties[key] = cloneDeep(prop);
+        merged.properties[key]._path = `${path}.properties.${key}`;
+      }
+    }
+  }
+
+  // Merge required (union)
+  const requiredA = a.required || [];
+  const requiredB = b.required || [];
+  const mergedRequired = [...new Set([...requiredA, ...requiredB])];
+  if (mergedRequired.length > 0) {
+    merged.required = mergedRequired;
+  }
+
+  // Merge additionalProperties
+  // If any is false, result is false
+  if (a.additionalProperties === false || b.additionalProperties === false) {
+    merged.additionalProperties = false;
+  } else if (typeof a.additionalProperties === 'boolean' && typeof b.additionalProperties === 'boolean') {
+    // Both are true (since false case handled above)
+    merged.additionalProperties = true;
+  } else if (a.additionalProperties && b.additionalProperties) {
+    // Both are schemas, merge them
+    if (typeof a.additionalProperties !== 'boolean' && typeof b.additionalProperties !== 'boolean') {
+      merged.additionalProperties = mergeSchemas(
+        a.additionalProperties,
+        b.additionalProperties,
+        `${path}.additionalProperties`
+      );
+    } else {
+      // One is schema, one is true - keep the schema
+      merged.additionalProperties = cloneDeep(
+        typeof a.additionalProperties !== 'boolean' ? a.additionalProperties : b.additionalProperties
+      );
+    }
+  } else {
+    // One has it, one doesn't - keep it
+    merged.additionalProperties = cloneDeep(a.additionalProperties ?? b.additionalProperties);
+  }
+
+  // Merge items (for array types)
+  if (a.items && b.items) {
+    merged.items = mergeSchemas(a.items, b.items, `${path}.items`);
+  } else if (a.items || b.items) {
+    merged.items = cloneDeep(a.items || b.items);
+    if (merged.items) {
+      merged.items._path = `${path}.items`;
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Flatten a schema node by merging allOf
+ * Returns a new flattened SchemaNode
+ */
+function flattenNode(node: SchemaNode): SchemaNode {
+  // Start with a copy of the node
+  const flattened: SchemaNode = cloneDeep(node);
+
+  // Merge allOf schemas into the node
+  if (flattened.allOf && flattened.allOf.length > 0) {
+    for (const subSchema of flattened.allOf) {
+      const flattenedSub = flattenNode(subSchema);
+      const merged = mergeSchemas(flattened, flattenedSub, flattened._path || '');
+      // Copy merged properties back to flattened
+      Object.assign(flattened, merged);
+    }
+    // Remove allOf after merging
+    delete flattened.allOf;
+  }
+
+  // Recursively flatten nested properties
+  if (flattened.properties) {
+    for (const key of Object.keys(flattened.properties)) {
+      flattened.properties[key] = flattenNode(flattened.properties[key]);
+    }
+  }
+
+  // Flatten items
+  if (flattened.items) {
+    flattened.items = flattenNode(flattened.items);
+  }
+
+  // Flatten additionalProperties if it's a schema
+  if (flattened.additionalProperties && typeof flattened.additionalProperties !== 'boolean') {
+    flattened.additionalProperties = flattenNode(flattened.additionalProperties);
+  }
+
+  // Flatten not
+  if (flattened.not) {
+    flattened.not = flattenNode(flattened.not);
+  }
+
+  // Handle anyOf/oneOf: compute flattened alternatives
+  if (flattened.anyOf && flattened.anyOf.length > 0) {
+    flattened._alternatives = flattened.anyOf.map(s => flattenNode(s));
+  }
+
+  if (flattened.oneOf && flattened.oneOf.length > 0) {
+    // If we already have alternatives from anyOf, append
+    const oneOfAlternatives = flattened.oneOf.map(s => flattenNode(s));
+    if (flattened._alternatives) {
+      flattened._alternatives = [...flattened._alternatives, ...oneOfAlternatives];
+    } else {
+      flattened._alternatives = oneOfAlternatives;
+    }
+  }
+
+  return flattened;
+}
+
+/**
  * Check for consistency issues (warnings only)
  * - Contradictory types in same scope via allOf
  */
@@ -344,9 +516,8 @@ export function parseSchema(raw: unknown): ParsedSchema {
   // Check consistency (warnings only)
   checkConsistency(original, context);
 
-  // Flattened view will be computed by T04
-  // For now, use a copy of original
-  const flattened: SchemaNode = { ...original };
+  // Compute flattened view (merge allOf)
+  const flattened = flattenNode(original);
 
   return {
     original,

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'fs';
+import { parseSchema, hasErrors, printErrors, printWarnings } from './parser.js';
 
 // Read version from package.json
 function getVersion(): string {
@@ -65,22 +66,16 @@ function parseArgs(args: string[]): ParseResult {
   };
 }
 
-// Validation error type
-interface ValidationError {
-  path: string;
-  message: string;
-}
-
 // Check if file exists
-function validateFileExists(path: string): ValidationError | null {
+function validateFileExists(path: string): { message: string } | null {
   if (!existsSync(path)) {
-    return { path, message: `Error: File not found: ${path}` };
+    return { message: `Error: File not found: ${path}` };
   }
   return null;
 }
 
-// Parse and validate JSON
-function validateJson(path: string): { data: unknown; error: ValidationError | null } {
+// Parse and validate JSON from file
+function loadJsonFile(path: string): { data: unknown; error: { message: string } | null } {
   try {
     const content = readFileSync(path, 'utf-8');
     const data = JSON.parse(content);
@@ -89,23 +84,9 @@ function validateJson(path: string): { data: unknown; error: ValidationError | n
     const parseError = err instanceof Error ? err.message : String(err);
     return { 
       data: null, 
-      error: { path, message: `Error: Invalid JSON in ${path}: ${parseError}` } 
+      error: { message: `Error: Invalid JSON in ${path}: ${parseError}` } 
     };
   }
-}
-
-// Validate JSON Schema structure
-function validateJsonSchema(data: unknown, path: string): ValidationError | null {
-  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
-    return { path, message: `Error: Not a valid JSON Schema: ${path} (must be an object)` };
-  }
-  
-  const schema = data as Record<string, unknown>;
-  if (!('$schema' in schema) && !('type' in schema)) {
-    return { path, message: `Error: Not a valid JSON Schema: ${path} (missing $schema or type property)` };
-  }
-  
-  return null;
 }
 
 // Main entry point
@@ -130,47 +111,51 @@ function main(): void {
       break;
 
     case 'run':
-      // Validate first schema file
+      // Load and parse first schema file
       let error = validateFileExists(result.oldSchema!);
       if (error) {
         console.error(error.message);
         process.exit(1);
       }
 
-      let jsonResult = validateJson(result.oldSchema!);
+      let jsonResult = loadJsonFile(result.oldSchema!);
       if (jsonResult.error) {
         console.error(jsonResult.error.message);
         process.exit(1);
       }
 
-      error = validateJsonSchema(jsonResult.data, result.oldSchema!);
-      if (error) {
-        console.error(error.message);
+      const oldParsed = parseSchema(jsonResult.data);
+      if (hasErrors(oldParsed)) {
+        printErrors(oldParsed);
         process.exit(1);
       }
+      printWarnings(oldParsed);
 
-      // Validate second schema file
+      // Load and parse second schema file
       error = validateFileExists(result.newSchema!);
       if (error) {
         console.error(error.message);
         process.exit(1);
       }
 
-      jsonResult = validateJson(result.newSchema!);
+      jsonResult = loadJsonFile(result.newSchema!);
       if (jsonResult.error) {
         console.error(jsonResult.error.message);
         process.exit(1);
       }
 
-      error = validateJsonSchema(jsonResult.data, result.newSchema!);
-      if (error) {
-        console.error(error.message);
+      const newParsed = parseSchema(jsonResult.data);
+      if (hasErrors(newParsed)) {
+        printErrors(newParsed);
         process.exit(1);
       }
+      printWarnings(newParsed);
 
-      // Stub success message (actual diff logic in future slice)
-      console.log('Both schemas are valid JSON Schemas.');
-      console.log('Diff logic not yet implemented.');
+      // Parsed schemas are available for diff phase
+      // _ = oldParsed, newParsed (stored in memory for next slice)
+
+      console.log('Both schemas parsed successfully.');
+      console.log('Diff logic will be implemented in the next slice.');
       process.exit(0);
       break;
   }
