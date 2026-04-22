@@ -191,10 +191,43 @@ test('runDiff returns correct structure', () => {
   assertTrue('output' in result, 'Result should have output property');
   assertTrue('exitCode' in result, 'Result should have exitCode property');
   assertTrue('breaking' in result, 'Result should have breaking property');
+  assertTrue('changes' in result, 'Result should have changes property');
   
   assertEqual(typeof result.output, 'string', 'output should be a string');
   assertEqual(typeof result.exitCode, 'number', 'exitCode should be a number');
   assertEqual(typeof result.breaking, 'boolean', 'breaking should be a boolean');
+  assertTrue(Array.isArray(result.changes), 'changes should be an array');
+});
+
+// Test: changes array contains raw change objects
+test('runDiff exposes changes array with raw change objects', () => {
+  const oldSchema = { type: 'object', properties: { name: { type: 'string' } } };
+  const newSchema = { type: 'object', properties: { name: { type: 'string' }, email: { type: 'string' } } };
+  
+  const oldParsed = parseSchema(oldSchema);
+  const newParsed = parseSchema(newSchema);
+  
+  const result = runDiff(oldParsed, newParsed);
+  
+  assertTrue(Array.isArray(result.changes), 'changes should be an array');
+  assertEqual(result.changes.length, 1, 'Should have one change');
+  
+  const change = result.changes[0];
+  assertEqual(change.path, 'properties.email', 'Change path should be properties.email');
+  assertEqual(change.kind, 'added', 'Change kind should be added');
+  assertEqual(change.breaking, false, 'Added property should not be breaking');
+});
+
+// Test: changes array is empty for identical schemas
+test('runDiff returns empty changes array for identical schemas', () => {
+  const schema = { type: 'object', properties: { name: { type: 'string' } } };
+  const oldParsed = parseSchema(schema);
+  const newParsed = parseSchema(schema);
+  
+  const result = runDiff(oldParsed, newParsed);
+  
+  assertTrue(Array.isArray(result.changes), 'changes should be an array');
+  assertEqual(result.changes.length, 0, 'Should have no changes');
 });
 
 console.log('\n=== Done ===\n');
