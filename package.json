@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:bin": "bun compile dist/index.js --compile --outfile dist/schemadiff",
     "start": "node dist/index.js"
   },
   "keywords": [
