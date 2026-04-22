@@ -16,6 +16,9 @@ export interface DiffResult {
   
   /** Whether any breaking changes exist */
   breaking: boolean;
+  
+  /** Raw array of change objects */
+  changes: Change[];
 }
 
 /**
@@ -23,7 +26,7 @@ export interface DiffResult {
  * 
  * @param oldParsed - The parsed old schema
  * @param newParsed - The parsed new schema
- * @returns DiffResult with output, exitCode, and breaking flag
+ * @returns DiffResult with output, exitCode, breaking flag, and changes array
  */
 export function runDiff(
   oldParsed: ParsedSchema,
@@ -41,6 +44,7 @@ export function runDiff(
       output: 'No changes detected.',
       exitCode: 0,
       breaking: false,
+      changes: [],
     };
   }
 
@@ -62,5 +66,6 @@ export function runDiff(
     output,
     exitCode,
     breaking: hasBreaking,
+    changes: annotatedChanges,
   };
 }
