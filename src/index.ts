@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'fs';
 import { parseSchema, hasErrors, printErrors, printWarnings } from './parser.js';
+import { runDiff } from './diff/index.js';
 
 // Read version from package.json
 function getVersion(): string {
@@ -27,8 +28,10 @@ Options:
   -v, --version      Show version number
 
 Exit codes:
-  0  Success
-  1  Error (file not found, invalid JSON, wrong arguments)`;
+  0  Success (no changes detected)
+  1  Error (file not found, invalid JSON, wrong arguments)
+  2  Changes detected (all non-breaking)
+  3  Breaking changes detected`;
 
 // Argument parsing result
 interface ParseResult {
@@ -151,12 +154,14 @@ function main(): void {
       }
       printWarnings(newParsed);
 
-      // Parsed schemas are available for diff phase
-      // _ = oldParsed, newParsed (stored in memory for next slice)
+      // Run diff pipeline
+      const diffResult = runDiff(oldParsed, newParsed);
 
-      console.log('Both schemas parsed successfully.');
-      console.log('Diff logic will be implemented in the next slice.');
-      process.exit(0);
+      // Print output to stdout
+      console.log(diffResult.output);
+
+      // Exit with appropriate code
+      process.exit(diffResult.exitCode);
       break;
   }
 }
