@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { parseSchema, hasErrors, printErrors, printWarnings } from './parser.js';
 import { runDiff } from './diff/index.js';
+import type { Change } from './diff/types.js';
 
 // Read version from package.json
 function getVersion(): string {
@@ -26,6 +27,7 @@ Arguments:
 Options:
   -h, --help         Show this help message
   -v, --version      Show version number
+  -j, --json         Output changes as JSON array (default: text)
 
 Exit codes:
   0  Success (no changes detected)
@@ -38,6 +40,7 @@ interface ParseResult {
   type: 'help' | 'version' | 'error' | 'run';
   oldSchema?: string;
   newSchema?: string;
+  json?: boolean;
   error?: string;
 }
 
@@ -47,12 +50,17 @@ function parseArgs(args: string[]): ParseResult {
     return { type: 'error', error: 'Error: No arguments provided.\n\n' + USAGE };
   }
 
+  let json = false;
+
   for (const arg of args) {
     if (arg === '-h' || arg === '--help') {
       return { type: 'help' };
     }
     if (arg === '-v' || arg === '--version') {
       return { type: 'version' };
+    }
+    if (arg === '-j' || arg === '--json') {
+      json = true;
     }
   }
 
@@ -65,7 +73,8 @@ function parseArgs(args: string[]): ParseResult {
   return {
     type: 'run',
     oldSchema: positional[0],
-    newSchema: positional[1]
+    newSchema: positional[1],
+    json
   };
 }
 
@@ -90,6 +99,22 @@ function loadJsonFile(path: string): { data: unknown; error: { message: string }
       error: { message: `Error: Invalid JSON in ${path}: ${parseError}` } 
     };
   }
+}
+
+/**
+ * Sort changes: breaking first, then non-breaking, each alphabetically by path
+ */
+function sortChanges(changes: Change[]): Change[] {
+  // Separate breaking and non-breaking changes
+  const breaking = changes.filter(c => c.breaking);
+  const nonBreaking = changes.filter(c => !c.breaking);
+
+  // Sort each group alphabetically by path
+  breaking.sort((a, b) => a.path.localeCompare(b.path));
+  nonBreaking.sort((a, b) => a.path.localeCompare(b.path));
+
+  // Combine: breaking first, then non-breaking
+  return [...breaking, ...nonBreaking];
 }
 
 // Main entry point
@@ -157,8 +182,15 @@ function main(): void {
       // Run diff pipeline
       const diffResult = runDiff(oldParsed, newParsed);
 
-      // Print output to stdout
-      console.log(diffResult.output);
+      // Output in JSON or text format
+      if (result.json) {
+        // Sort changes: breaking first, then non-breaking, each alphabetically by path
+        const sortedChanges = sortChanges(diffResult.changes);
+        console.log(JSON.stringify(sortedChanges));
+      } else {
+        // Print text output to stdout
+        console.log(diffResult.output);
+      }
 
       // Exit with appropriate code
       process.exit(diffResult.exitCode);
